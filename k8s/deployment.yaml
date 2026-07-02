@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taidex-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: taidex-web }
+  template:
+    metadata:
+      labels: { app: taidex-web }
+    spec:
+      containers:
+        - name: web
+          image: REGISTRY/taidex:latest   # 替換為你的 image
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef: { name: taidex-secrets }
+          readinessProbe:
+            httpGet: { path: /login, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: taidex-web
+spec:
+  selector: { app: taidex-web }
+  ports:
+    - port: 80
+      targetPort: 3000
