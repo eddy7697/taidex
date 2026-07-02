@@ -19,6 +19,7 @@ describe("getQuotes", () => {
     const db = vi.fn(async () => [q("2330", "db")]);
     const out = await getQuotes(["2330"], { isOpen: () => true, intraday, db });
     expect(out[0].name).toBe("db");
+    expect(db).toHaveBeenCalled();
   });
   it("盤後直接用 DB", async () => {
     const intraday = vi.fn(async () => [q("2330", "intraday")]);
@@ -26,5 +27,20 @@ describe("getQuotes", () => {
     const out = await getQuotes(["2330"], { isOpen: () => false, intraday, db });
     expect(out[0].name).toBe("db");
     expect(intraday).not.toHaveBeenCalled();
+  });
+  it("空 symbols 直接回空陣列,不呼叫任何來源", async () => {
+    const intraday = vi.fn(async () => [q("2330", "intraday")]);
+    const db = vi.fn(async () => [q("2330", "db")]);
+    const out = await getQuotes([], { isOpen: () => true, intraday, db });
+    expect(out).toEqual([]);
+    expect(intraday).not.toHaveBeenCalled();
+    expect(db).not.toHaveBeenCalled();
+  });
+  it("盤中即時來源回空陣列時回退 DB", async () => {
+    const intraday = vi.fn(async () => []);
+    const db = vi.fn(async () => [q("2330", "db")]);
+    const out = await getQuotes(["2330"], { isOpen: () => true, intraday, db });
+    expect(out[0].name).toBe("db");
+    expect(db).toHaveBeenCalled();
   });
 });
