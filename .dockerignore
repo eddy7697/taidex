@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+docs
+*.md
+.env*
+.superpowers
+.remember
+k8s
+*.tsbuildinfo
+dist
+npm-debug.log*
+.DS_Store
