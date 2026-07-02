@@ -43,4 +43,21 @@ describe("getQuotes", () => {
     expect(out[0].name).toBe("db");
     expect(db).toHaveBeenCalled();
   });
+  it("部分即時來源缺漏時,缺漏的symbol由DB補齊", async () => {
+    const intraday = vi.fn(async () => [q("2330", "intraday")]);
+    const db = vi.fn(async (symbols: string[]) => symbols.map((s) => q(s, "db")));
+    const out = await getQuotes(["2330", "2454"], { isOpen: () => true, intraday, db });
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ symbol: "2330", name: "intraday" });
+    expect(out[1]).toMatchObject({ symbol: "2454", name: "db" });
+    expect(db).toHaveBeenCalledWith(["2454"]);
+  });
+  it("合併結果依請求順序排列,不受來源回傳順序影響", async () => {
+    const intraday = vi.fn(async () => [q("2454", "intraday")]);
+    const db = vi.fn(async (symbols: string[]) => symbols.map((s) => q(s, "db")));
+    const out = await getQuotes(["2330", "2454"], { isOpen: () => true, intraday, db });
+    expect(out.map((o) => o.symbol)).toEqual(["2330", "2454"]);
+    expect(out[0].name).toBe("db");
+    expect(out[1].name).toBe("intraday");
+  });
 });

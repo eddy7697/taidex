@@ -33,7 +33,17 @@ export function parseTwseDaily(json: unknown): DailyRow[] {
 }
 
 export async function fetchTwseDaily(fetchImpl: typeof fetch = fetch): Promise<DailyRow[]> {
-  const res = await fetchImpl("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL");
-  if (!res.ok) throw new Error(`TWSE OpenAPI failed: ${res.status}`);
-  return parseTwseDaily(await res.json());
+  // Abort a hung upstream connection so callers aren't stuck waiting forever. Only wired
+  // for the default fetch; injected test fakes ignore the extra `signal` option.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetchImpl("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", {
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`TWSE OpenAPI failed: ${res.status}`);
+    return parseTwseDaily(await res.json());
+  } finally {
+    clearTimeout(timeout);
+  }
 }

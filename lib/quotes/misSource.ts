@@ -49,8 +49,20 @@ export async function fetchIntradayQuotes(
   if (symbols.length === 0) return [];
   const exCh = buildExCh(symbols, marketBySymbol);
   const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(exCh)}&json=1&delay=0`;
-  const res = await fetchImpl(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) throw new Error(`MIS request failed: ${res.status}`);
-  const json = await res.json();
-  return parseMisResponse(json);
+  // Abort a hung upstream connection so the DB fallback can actually trigger instead of
+  // hanging the request indefinitely. Only wired for the default fetch; injected test
+  // fakes ignore the extra `signal` option.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetchImpl(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`MIS request failed: ${res.status}`);
+    const json = await res.json();
+    return parseMisResponse(json);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
