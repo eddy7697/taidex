@@ -17,6 +17,7 @@
   "type": "module",
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
+    "@line/liff": "^2.29.1",
     "@prisma/client": "^6.19.3",
     "lightweight-charts": "^5.2.0",
     "next": "^16.2.9",
