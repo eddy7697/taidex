@@ -3,11 +3,24 @@ import Link from "next/link";
 import type { Quote } from "@/lib/quotes/types";
 import { changeColorClass, fmtPrice, fmtSignedPct } from "@/lib/format";
 
-export default function QuoteRow({ quote, onRemove }: { quote: Quote; onRemove: (s: string) => void }) {
+export default function QuoteRow({
+  quote, onRemove, dragHandle, rowRef, style,
+}: {
+  quote: Quote;
+  onRemove: (s: string) => void;
+  dragHandle?: React.ReactNode;
+  rowRef?: React.Ref<HTMLTableRowElement>;
+  style?: React.CSSProperties;
+}) {
   const c = changeColorClass(quote.change);
   return (
-    <tr className="border-b border-white/5">
-      <td className="py-2"><Link href={`/stock/${quote.symbol}`}>{quote.name}<span className="ml-2 text-xs text-gray-400">{quote.symbol}</span></Link></td>
+    <tr ref={rowRef} style={style} className="border-b border-white/5 bg-[var(--bg)]">
+      <td className="py-2">
+        <span className="flex items-center">
+          {dragHandle}
+          <Link href={`/stock/${quote.symbol}`}>{quote.name}<span className="ml-2 text-xs text-gray-400">{quote.symbol}</span></Link>
+        </span>
+      </td>
       <td className={`py-2 text-right font-bold ${c}`}>{fmtPrice(quote.price)}</td>
       <td className={`py-2 text-right ${c}`}>{fmtSignedPct(quote.changePct)}</td>
       <td className="py-2 text-right text-gray-400">{quote.volume.toLocaleString()}</td>

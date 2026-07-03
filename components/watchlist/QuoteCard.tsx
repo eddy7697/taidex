@@ -3,10 +3,19 @@ import Link from "next/link";
 import type { Quote } from "@/lib/quotes/types";
 import { changeColorClass, fmtPrice, fmtSignedPct } from "@/lib/format";
 
-export default function QuoteCard({ quote, onRemove }: { quote: Quote; onRemove: (s: string) => void }) {
+export default function QuoteCard({
+  quote, onRemove, dragHandle, cardRef, style,
+}: {
+  quote: Quote;
+  onRemove: (s: string) => void;
+  dragHandle?: React.ReactNode;
+  cardRef?: React.Ref<HTMLDivElement>;
+  style?: React.CSSProperties;
+}) {
   const c = changeColorClass(quote.change);
   return (
-    <div className="flex items-center justify-between rounded-lg bg-[var(--card)] p-4">
+    <div ref={cardRef} style={style} className="flex items-center justify-between rounded-lg bg-[var(--card)] p-4">
+      {dragHandle}
       <Link href={`/stock/${quote.symbol}`} className="flex-1">
         <div className="font-bold">{quote.name}</div>
         <div className="text-xs text-gray-400">{quote.symbol}</div>
