@@ -7,7 +7,7 @@ Taidex（對外網域 **tradex.nazo.com.tw**）——給投資新手（擁有者
 
 ```bash
 pnpm dev            # 本機開發
-pnpm test           # Vitest（33 tests）
+pnpm test           # Vitest（77 tests）
 pnpm build          # Next.js standalone build
 pnpm exec tsc --noEmit
 pnpm exec prisma migrate dev --name <desc>   # 新增 schema 變更時產生 migration
@@ -24,6 +24,7 @@ pnpm ingest:daily   # 手動跑每日行情灌入（需可連 DB）
 - **認證** Auth.js v5 + LINE provider，**拆分設定**（見下方 auth 雷）。
 - **自選股** `lib/watchlist/`：CRUD + 排序，**每個查詢都以 session userId 過濾**（跨使用者隔離,由 DB `@@unique([userId, stockSymbol])` 保證）。
 - **持股損益** `lib/holdings/`：交易流水帳（`HoldingTransaction`）為唯一事實來源,部位/均價/已實現損益由 `positions.ts` 純函式以**平均成本法**即時推導（不存衍生狀態）;`service.ts` CRUD 皆以 userId 過濾並做超賣驗證;費用估算 `fees.ts`（手續費 0.1425% 低消 20、賣出稅 0.3%,表單可覆寫）。頁面 `/holdings`。
+- **大盤總覽** `lib/market-overview/`：指數（MIS `t00`/`o00`,盤中即時 30s 快取）、漲跌家數與三大法人（TWSE rwd JSON）、強弱產業（TWSE OpenAPI `MI_INDEX` 類指數）,全免費源、無 DB 表,每日資料 10min 快取;`service.getMarketOverview()` 區塊獨立容錯（單源失敗回 null）。頁面 `/market`,每日區塊標資料日期（盤中為前一交易日）。
 - **每日行情** `scripts/ingest-daily.ts`（image 內編成 `dist/ingest-daily.mjs`）由 K8s CronJob 每日 15:00 台北灌入。
 - **前端**：手機卡片 / 電腦表格響應式（`components/watchlist/`）,每 60s 輪詢;個股頁 `app/stock/[symbol]` 用 lightweight-charts 畫 K 線。
 
@@ -57,12 +58,13 @@ pnpm ingest:daily   # 手動跑每日行情灌入（需可連 DB）
 
 - 看盤/自選股:`docs/superpowers/specs/2026-07-02-taidex-watchlist-design.md` + `docs/superpowers/plans/2026-07-02-taidex-watchlist.md`
 - 持股損益:`docs/superpowers/specs/2026-07-03-taidex-holdings-design.md` + `docs/superpowers/plans/2026-07-03-taidex-holdings.md`
+- 大盤總覽:`docs/superpowers/specs/2026-07-03-taidex-market-overview-design.md`
 
 ## 路線圖
 
-「看盤 / 自選股」「持股損益追蹤」已上線。後續（依價值）:
-1. **大盤與產業總覽**（指數、漲跌家數、三大法人、強弱產業,需接 FinMind）。
-2. **條件選股**。
-3. 持股損益延伸:股利/除權息、報表圖表（v1 刻意不做,見 spec 的 YAGNI 節）。
+「看盤 / 自選股」「持股損益追蹤」「大盤與產業總覽」已上線（大盤全用 TWSE 免費源,未用到 FinMind）。後續（依價值）:
+1. **條件選股**。
+2. 持股損益延伸:股利/除權息、報表圖表(v1 刻意不做,見 spec 的 YAGNI 節)。
+3. 大盤延伸:上櫃漲跌家數/法人、大盤 K 線、產業下鑽(v1 刻意不做,見 spec 的 YAGNI 節)。
 
 v1 尚未做的 polish（小項）:大盤指數列 + 卡片迷你走勢線、拖曳排序 UI（後端 API 已就緒）、盤後「資料延遲」標示（`Quote.asOf` 已有）、成交量單位統一（張 vs 股）、AddStock debounce。
