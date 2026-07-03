@@ -7,11 +7,12 @@ Taidex（對外網域 **tradex.nazo.com.tw**）——給投資新手（擁有者
 
 ```bash
 pnpm dev            # 本機開發
-pnpm test           # Vitest（92 tests）
+pnpm test           # Vitest（110 tests）
 pnpm build          # Next.js standalone build
 pnpm exec tsc --noEmit
 pnpm exec prisma migrate dev --name <desc>   # 新增 schema 變更時產生 migration
 pnpm ingest:daily   # 手動跑每日行情灌入（需可連 DB）
+pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 2;需可連 DB)
 ```
 
 - 套件管理用 **pnpm**（corepack, v11）。Node 22。TypeScript strict。
@@ -24,7 +25,7 @@ pnpm ingest:daily   # 手動跑每日行情灌入（需可連 DB）
 - **認證** Auth.js v5 + LINE provider，**拆分設定**（見下方 auth 雷）。
 - **自選股** `lib/watchlist/`：CRUD + 排序，**每個查詢都以 session userId 過濾**（跨使用者隔離,由 DB `@@unique([userId, stockSymbol])` 保證）。
 - **持股損益** `lib/holdings/`：交易流水帳（`HoldingTransaction`）為唯一事實來源,部位/均價/已實現損益由 `positions.ts` 純函式以**平均成本法**即時推導（不存衍生狀態）;`service.ts` CRUD 皆以 userId 過濾並做超賣驗證;費用估算 `fees.ts`（手續費 0.1425% 低消 20、賣出稅 0.3%,表單可覆寫）。頁面 `/holdings`。
-- **大盤總覽** `lib/market-overview/`：指數（MIS `t00`/`o00`,盤中即時 30s 快取）、漲跌家數與三大法人（TWSE rwd JSON）、強弱產業（TWSE OpenAPI `MI_INDEX` 類指數）,全免費源、無 DB 表,每日資料 10min 快取;`service.getMarketOverview()` 區塊獨立容錯（單源失敗回 null）。頁面 `/market`,每日區塊標資料日期（盤中為前一交易日）。
+- **大盤總覽** `lib/market-overview/`：指數（MIS `t00`/`o00`,盤中即時 30s 快取）、漲跌家數與三大法人（TWSE rwd JSON）、強弱產業（TWSE OpenAPI `MI_INDEX` 類指數）,全免費源、無 DB 表,每日資料 10min 快取;`service.getMarketOverview()` 區塊獨立容錯（單源失敗回 null）。頁面 `/market`,每日區塊標資料日期（盤中為前一交易日）。指數區塊由 `getIndices()` 抽出重用,首頁 `IndexBar`（`/api/market/indices`）與 `/market` 共用同一份指數資料。
 - **條件選股** `lib/screener/`：TWSE OpenAPI `STOCK_DAY_ALL`(價量) + `BWIBBU_ALL`(本益比/殖利率/淨值比) 以 Code 在記憶體 join 成快照(`service.getScreenerSnapshot()`,10min 快取,估值源失敗只讓估值欄為 null);**整包快照下發、前端過濾排序**(`engine.ts` 純函式:`applyConditions`/`sortRows`/`PRESETS` 高殖利率·便宜好股·今日強勢/`CONDITION_DEFS` 條件面板六列)。無 DB 表。頁面 `/screener`,標資料日期(盤中為前一交易日)。
 - **每日行情** `scripts/ingest-daily.ts`（image 內編成 `dist/ingest-daily.mjs`）由 K8s CronJob 每日 15:00 台北灌入。
 - **前端**：手機卡片 / 電腦表格響應式（`components/watchlist/`）,每 60s 輪詢;個股頁 `app/stock/[symbol]` 用 lightweight-charts 畫 K 線。
@@ -69,5 +70,4 @@ pnpm ingest:daily   # 手動跑每日行情灌入（需可連 DB）
 2. 大盤延伸:上櫃漲跌家數/法人、大盤 K 線、產業下鑽(v1 刻意不做,見 spec 的 YAGNI 節)。
 3. 選股延伸:上櫃股票、技術指標(等 DailyQuote 歷史累積,約 2026-10 起可做均線)、產業別篩選、儲存自訂策略(v1 刻意不做,見 spec 的 YAGNI 節)。
 
-v1 尚未做的 polish（小項）:大盤指數列 + 卡片迷你走勢線。
-（已完成:拖曳排序（dnd-kit）、盤後「收盤資料」標示、成交量統一為張、AddStock debounce、選股結果一鍵加自選——2026-07-03）
+v1 polish 全數完成(2026-07-03):拖曳排序、盤後標示、成交量統一、AddStock debounce、選股一鍵加自選、大盤指數列(首頁,`/api/market/indices`)+ 卡片迷你走勢線(近月收盤,`/api/watchlist/sparklines`;歷史以 `pnpm backfill:history` 回填自選∪持股近 2 月,新自選靠每日 ingest 累積)。
