@@ -18,6 +18,7 @@ model User {
   sessions      Session[]
   watchlist     WatchlistItem[]
   columnPref    UserColumnPref?
+  transactions  HoldingTransaction[]
   createdAt     DateTime        @default(now())
 }
 
@@ -85,6 +86,22 @@ model DailyQuote {
   stock       Stock    @relation(fields: [stockSymbol], references: [symbol], onDelete: Cascade)
   @@unique([stockSymbol, date])
   @@index([stockSymbol])
+}
+
+model HoldingTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  stockSymbol String
+  side        String   // "BUY" | "SELL"
+  quantity    Int      // 股數
+  price       Float    // 每股成交價
+  fee         Int      @default(0) // 手續費(元)
+  tax         Int      @default(0) // 證交稅(元,賣出才有)
+  date        DateTime @db.Date    // 成交日
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, stockSymbol])
 }
 
 model UserColumnPref {
