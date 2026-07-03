@@ -5,6 +5,7 @@ import IndexCard from "@/components/market/IndexCard";
 import BreadthBar from "@/components/market/BreadthBar";
 import InstitutionalCard from "@/components/market/InstitutionalCard";
 import SectorList from "@/components/market/SectorList";
+import IndexKline from "@/components/market/IndexKline";
 
 function Section({ title, date, children }: { title: string; date?: string; children: React.ReactNode }) {
   return (
@@ -50,6 +51,10 @@ export default function MarketView() {
       ) : (
         <Section title="指數"><Empty /></Section>
       )}
+
+      <Section title="大盤 K 線(日K)">
+        <IndexKline />
+      </Section>
 
       <Section title="漲跌家數(上市股票)" date={data.breadth?.date}>
         {data.breadth ? <BreadthBar breadth={data.breadth} /> : <Empty />}
