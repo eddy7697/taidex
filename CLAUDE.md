@@ -7,7 +7,7 @@ Taidex（對外網域 **tradex.nazo.com.tw**）——給投資新手（擁有者
 
 ```bash
 pnpm dev            # 本機開發
-pnpm test           # Vitest（110 tests）
+pnpm test           # Vitest（137 tests）
 pnpm build          # Next.js standalone build
 pnpm exec tsc --noEmit
 pnpm exec prisma migrate dev --name <desc>   # 新增 schema 變更時產生 migration
@@ -24,7 +24,7 @@ pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 
   - `quoteService.getQuotes()`：盤中打證交所 MIS（`misSource`）+ 30s 記憶體快取（`cache.memoize`）,盤後回 DB 收盤價（`dbSource`）;部分/失敗會回退 DB。盤中盤後由 `lib/market/hours.ts`（Asia/Taipei 平日 09:00–13:30）判斷。換源/加源只動這層。
 - **認證** Auth.js v5 + LINE provider，**拆分設定**（見下方 auth 雷）。
 - **自選股** `lib/watchlist/`：CRUD + 排序，**每個查詢都以 session userId 過濾**（跨使用者隔離,由 DB `@@unique([userId, stockSymbol])` 保證）。
-- **持股損益** `lib/holdings/`：交易流水帳（`HoldingTransaction`）為唯一事實來源,部位/均價/已實現損益由 `positions.ts` 純函式以**平均成本法**即時推導（不存衍生狀態）;`service.ts` CRUD 皆以 userId 過濾並做超賣驗證;費用估算 `fees.ts`（手續費 0.1425% 低消 20、賣出稅 0.3%,表單可覆寫）。頁面 `/holdings`。
+- **持股損益** `lib/holdings/`：交易流水帳（`HoldingTransaction`）為唯一事實來源,部位/均價/已實現損益由 `positions.ts` 純函式以**平均成本法**即時推導（不存衍生狀態）;`service.ts` CRUD 皆以 userId 過濾並做超賣驗證;費用估算 `fees.ts`（手續費 0.1425% 低消 20、賣出稅 0.3%,表單可覆寫）。頁面 `/holdings`。交易型別除 BUY/SELL 外含 `DIV_CASH`（現金股利,累計 `dividendIncome`,與已實現損益分列）與 `DIV_STOCK`（配股:股數增、成本不變 → 均價稀釋;重放計入持股,刪單防超賣自動涵蓋）,零 migration（`side` 為 String）;費用缺省補值集中在 `fees.resolveFees`（股利匯費預設 10、健保補充費 2.11% 門檻 2 萬）。
 - **大盤總覽** `lib/market-overview/`：指數（MIS `t00`/`o00`,盤中即時 30s 快取）、漲跌家數與三大法人（TWSE rwd JSON）、強弱產業（TWSE OpenAPI `MI_INDEX` 類指數）,全免費源、無 DB 表,每日資料 10min 快取;`service.getMarketOverview()` 區塊獨立容錯（單源失敗回 null）。頁面 `/market`,每日區塊標資料日期（盤中為前一交易日）。指數區塊由 `getIndices()` 抽出重用,首頁 `IndexBar`（`/api/market/indices`）與 `/market` 共用同一份指數資料。大盤 K 線（`indexHistory.ts`）:TWSE `MI_5MINS_HIST`（加權）+ TPEX `indexInfo/inx`（櫃買）按月抓取合併（300ms 節流;限流回應拋錯不快取,避免缺月的洞）,`/api/market/history?index=twse|tpex&months=1..6`,前端 `IndexKline` 蠟燭圖切換指數/範圍。
 - **條件選股** `lib/screener/`：TWSE OpenAPI `STOCK_DAY_ALL`(價量) + `BWIBBU_ALL`(本益比/殖利率/淨值比) 以 Code 在記憶體 join 成快照(`service.getScreenerSnapshot()`,10min 快取,估值源失敗只讓估值欄為 null);**整包快照下發、前端過濾排序**(`engine.ts` 純函式:`applyConditions`/`sortRows`/`PRESETS` 高殖利率·便宜好股·今日強勢/`CONDITION_DEFS` 條件面板六列)。無 DB 表。頁面 `/screener`,標資料日期(盤中為前一交易日)。
 - **每日行情** `scripts/ingest-daily.ts`（image 內編成 `dist/ingest-daily.mjs`）由 K8s CronJob 每日 15:00 台北灌入。
@@ -59,14 +59,14 @@ pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 
 ## 規格 / 計畫文件
 
 - 看盤/自選股:`docs/superpowers/specs/2026-07-02-taidex-watchlist-design.md` + `docs/superpowers/plans/2026-07-02-taidex-watchlist.md`
-- 持股損益:`docs/superpowers/specs/2026-07-03-taidex-holdings-design.md` + `docs/superpowers/plans/2026-07-03-taidex-holdings.md`
+- 持股損益:`docs/superpowers/specs/2026-07-03-taidex-holdings-design.md` + `docs/superpowers/plans/2026-07-03-taidex-holdings.md`;股利/除權息:`docs/superpowers/specs/2026-07-03-taidex-dividends-design.md` + `docs/superpowers/plans/2026-07-03-taidex-dividends.md`
 - 大盤總覽:`docs/superpowers/specs/2026-07-03-taidex-market-overview-design.md`
 - 條件選股:`docs/superpowers/specs/2026-07-03-taidex-screener-design.md` + `docs/superpowers/plans/2026-07-03-taidex-screener.md`
 
 ## 路線圖
 
 「看盤 / 自選股」「持股損益追蹤」「大盤與產業總覽」「條件選股」已上線（全用 TWSE 免費源,未用到 FinMind）。後續（依價值）:
-1. 持股損益延伸:股利/除權息、報表圖表(v1 刻意不做,見 spec 的 YAGNI 節)。
+1. 持股損益延伸:股利/除權息已上線(2026-07-03,手動記帳;自動抓除權息預填仍為 YAGNI),剩報表圖表。
 2. 大盤延伸:上櫃漲跌家數/法人、產業下鑽(v1 刻意不做,見 spec 的 YAGNI 節);大盤 K 線已上線(2026-07-03)。
 3. 選股延伸:上櫃股票、技術指標(等 DailyQuote 歷史累積,約 2026-10 起可做均線)、產業別篩選、儲存自訂策略(v1 刻意不做,見 spec 的 YAGNI 節)。
 
