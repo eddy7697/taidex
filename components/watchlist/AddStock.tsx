@@ -1,16 +1,24 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function AddStock({ onAdded }: { onAdded: () => void }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<{ symbol: string; name: string }[]>([]);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seq = useRef(0); // 丟棄過期回應,避免慢的舊查詢蓋掉新結果
 
-  async function search(v: string) {
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  function search(v: string) {
     setQ(v);
+    if (timer.current) clearTimeout(timer.current);
     if (!v.trim()) { setResults([]); return; }
-    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(v)}`);
-    const json = await res.json();
-    setResults(json.results ?? []);
+    timer.current = setTimeout(async () => {
+      const mySeq = ++seq.current;
+      const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(v)}`);
+      const json = await res.json();
+      if (mySeq === seq.current) setResults(json.results ?? []);
+    }, 300);
   }
   async function add(symbol: string) {
     await fetch("/api/watchlist", {
