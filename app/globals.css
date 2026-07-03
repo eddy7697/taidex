@@ -9,3 +9,5 @@
   --card: #131a22;
 }
 html, body { background: var(--bg); color: #e6edf3; }
+/* 擋雙擊放大(iOS Safari 忽略 viewport meta 的 user-scalable,此屬性仍有效);雙指縮放由 viewport meta 擋 */
+html { touch-action: manipulation; }
