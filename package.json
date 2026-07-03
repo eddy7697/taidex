@@ -9,7 +9,8 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "ingest:daily": "tsx scripts/ingest-daily.ts"
+    "ingest:daily": "tsx scripts/ingest-daily.ts",
+    "backfill:history": "tsx scripts/backfill-history.ts"
   },
   "keywords": [],
   "author": "",

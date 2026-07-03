@@ -29,6 +29,13 @@ RUN pnpm exec esbuild scripts/ingest-daily.ts \
       --bundle --platform=node --format=esm --target=node22 \
       --packages=external \
       --outfile=dist/ingest-daily.mjs
+# One-off history backfill (watchlist/holdings symbols only); run manually in a
+# pod via `node dist/backfill-history.mjs` after deploy. Same bundling rationale
+# as ingest-daily above.
+RUN pnpm exec esbuild scripts/backfill-history.ts \
+      --bundle --platform=node --format=esm --target=node22 \
+      --packages=external \
+      --outfile=dist/backfill-history.mjs
 # Strip devDependencies (tsx, typescript, vitest, esbuild, prisma CLI, ...)
 # now that build artifacts (.next/standalone, dist/ingest-daily.mjs) exist.
 # pnpm keeps @prisma/client's generated engine/client inside its content
