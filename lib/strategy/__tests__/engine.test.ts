@@ -116,4 +116,13 @@ describe("recommend", () => {
     expect(recs[0].reasons.length).toBe(2);
     expect(recs.some((r) => r.row.symbol === "TINY")).toBe(false);
   });
+  it("策略主因子(最高權重,並列取全部)缺值者不進榜", () => {
+    const income: Weights = { value: 0.25, dividend: 0.45, momentum: 0.05, chips: 0.15, heat: 0.1 };
+    const rows = [
+      // 四因子皆頂尖但無殖利率資料 → 不得進存股收息榜
+      makeRow({ symbol: "NOYIELD", dividendYield: null, peRatio: 8, pbRatio: 0.8, biasPct: 6, changePct: 4, chipsRatio: 3, volumeLots: 9000 }),
+      makeRow({ symbol: "YIELDY", dividendYield: 5, volumeLots: 800 }),
+    ];
+    expect(recommend(rows, income, 5).map((r) => r.row.symbol)).toEqual(["YIELDY"]);
+  });
 });

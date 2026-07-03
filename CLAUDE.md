@@ -30,7 +30,7 @@ pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 
 - **策略推薦** `lib/strategy/`:五因子(價值/收息/動能/籌碼/熱度)截面百分位評分,
   資料源=screener 快照+月均價(`STOCK_DAY_AVG_ALL`)+每股法人買賣超(rwd `T86`,不帶 date 取最新),
   `service.getStrategySnapshot()` 10min 快取、月均/T86 失敗對應因子 null(容錯);
-  百分位/加權計分為前端計分純函式(`engine.ts`,於 Vitest/Node 測試;評分宇宙 ≥200 張且 ≥5 元、缺因子權重再正規化、<3 因子不進榜),
+  百分位/加權計分為前端計分純函式(`engine.ts`,於 Vitest/Node 測試;評分宇宙 ≥200 張且 ≥5 元、缺因子權重再正規化、<3 因子或主因子(最高權重)缺值不進榜),
   前端整包快照下發、調權重即時重排。頁面 `/strategy`,無 DB 表。
 - **每日行情** `scripts/ingest-daily.ts`（image 內編成 `dist/ingest-daily.mjs`）由 K8s CronJob 每日 15:00 台北灌入。
 - **前端**：手機卡片 / 電腦表格響應式（`components/watchlist/`）,每 60s 輪詢;個股頁 `app/stock/[symbol]` 用 lightweight-charts 畫 K 線。

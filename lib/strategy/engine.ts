@@ -98,8 +98,12 @@ export function buildReasons(f: FactorScores, row: FactorRow): string[] {
 export function recommend(rows: FactorRow[], weights: Weights, topN = 20): Recommendation[] {
   const universe = rows.filter(inUniverse);
   const scores = computeFactorScores(universe);
+  // 主因子(最高權重,並列取全部)缺值不進榜——存股收息榜不該出現無殖利率資料的股票
+  const maxW = Math.max(...FACTOR_KEYS.map((k) => weights[k]));
+  const dominant = maxW > 0 ? FACTOR_KEYS.filter((k) => weights[k] === maxW) : [];
   const recs: Recommendation[] = [];
   for (let i = 0; i < universe.length; i++) {
+    if (dominant.some((k) => scores[i][k] == null)) continue;
     const score = compositeScore(scores[i], weights);
     if (score == null) continue;
     recs.push({ row: universe[i], score, factors: scores[i], reasons: buildReasons(scores[i], universe[i]) });
