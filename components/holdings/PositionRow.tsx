@@ -29,7 +29,12 @@ export default function PositionRow({
         <td className={`text-right ${c}`}>{pct !== null ? fmtSignedPct(pct) : "—"}</td>
       </tr>
       {expanded && (
-        <tr><td colSpan={7}><TransactionList symbol={p.symbol} onChanged={onChanged} /></td></tr>
+        <tr><td colSpan={7}>
+          {p.dividendIncome > 0 && (
+            <div className="mt-2 text-xs text-gray-400">累計股利 {fmtMoney(p.dividendIncome)}</div>
+          )}
+          <TransactionList symbol={p.symbol} onChanged={onChanged} />
+        </td></tr>
       )}
     </>
   );

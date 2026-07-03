@@ -2,7 +2,7 @@
 import Link from "next/link";
 import type { ApiPosition } from "@/components/holdings/types";
 import TransactionList from "@/components/holdings/TransactionList";
-import { changeColorClass, fmtPrice, fmtSignedMoney, fmtSignedPct } from "@/lib/format";
+import { changeColorClass, fmtPrice, fmtMoney, fmtSignedMoney, fmtSignedPct } from "@/lib/format";
 
 export default function PositionCard({
   position: p, expanded, onToggle, onChanged,
@@ -38,6 +38,9 @@ export default function PositionCard({
             現價 {p.quote ? fmtPrice(p.quote.price) : "—"}・
             <Link href={`/stock/${p.symbol}`} className="underline">看走勢</Link>
           </div>
+          {p.dividendIncome > 0 && (
+            <div className="mt-1 text-xs text-gray-400">累計股利 {fmtMoney(p.dividendIncome)}</div>
+          )}
           <TransactionList symbol={p.symbol} onChanged={onChanged} />
         </>
       )}
