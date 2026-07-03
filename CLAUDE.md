@@ -27,6 +27,11 @@ pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 
 - **持股損益** `lib/holdings/`：交易流水帳（`HoldingTransaction`）為唯一事實來源,部位/均價/已實現損益由 `positions.ts` 純函式以**平均成本法**即時推導（不存衍生狀態）;`service.ts` CRUD 皆以 userId 過濾並做超賣驗證;費用估算 `fees.ts`（手續費 0.1425% 低消 20、賣出稅 0.3%,表單可覆寫）。頁面 `/holdings`。交易型別除 BUY/SELL 外含 `DIV_CASH`（現金股利,累計 `dividendIncome`,與已實現損益分列）與 `DIV_STOCK`（配股:股數增、成本不變 → 均價稀釋;重放計入持股,刪單防超賣自動涵蓋）,零 migration（`side` 為 String）;費用缺省補值集中在 `fees.resolveFees`（股利匯費預設 10、健保補充費 2.11% 門檻 2 萬）。
 - **大盤總覽** `lib/market-overview/`：指數（MIS `t00`/`o00`,盤中即時 30s 快取）、漲跌家數與三大法人（TWSE rwd JSON）、強弱產業（TWSE OpenAPI `MI_INDEX` 類指數）,全免費源、無 DB 表,每日資料 10min 快取;`service.getMarketOverview()` 區塊獨立容錯（單源失敗回 null）。頁面 `/market`,每日區塊標資料日期（盤中為前一交易日）。指數區塊由 `getIndices()` 抽出重用,首頁 `IndexBar`（`/api/market/indices`）與 `/market` 共用同一份指數資料。大盤 K 線（`indexHistory.ts`）:TWSE `MI_5MINS_HIST`（加權）+ TPEX `indexInfo/inx`（櫃買）按月抓取合併（300ms 節流;限流回應拋錯不快取,避免缺月的洞）,`/api/market/history?index=twse|tpex&months=1..6`,前端 `IndexKline` 蠟燭圖切換指數/範圍。
 - **條件選股** `lib/screener/`：TWSE OpenAPI `STOCK_DAY_ALL`(價量) + `BWIBBU_ALL`(本益比/殖利率/淨值比) 以 Code 在記憶體 join 成快照(`service.getScreenerSnapshot()`,10min 快取,估值源失敗只讓估值欄為 null);**整包快照下發、前端過濾排序**(`engine.ts` 純函式:`applyConditions`/`sortRows`/`PRESETS` 高殖利率·便宜好股·今日強勢/`CONDITION_DEFS` 條件面板六列)。無 DB 表。頁面 `/screener`,標資料日期(盤中為前一交易日)。
+- **策略推薦** `lib/strategy/`:五因子(價值/收息/動能/籌碼/熱度)截面百分位評分,
+  資料源=screener 快照+月均價(`STOCK_DAY_AVG_ALL`)+每股法人買賣超(rwd `T86`,不帶 date 取最新),
+  `service.getStrategySnapshot()` 10min 快取、月均/T86 失敗對應因子 null(容錯);
+  百分位/加權計分為前後端共用純函式(`engine.ts`,評分宇宙 ≥200 張且 ≥5 元、缺因子權重再正規化、<3 因子不進榜),
+  前端整包快照下發、調權重即時重排。頁面 `/strategy`,無 DB 表。
 - **每日行情** `scripts/ingest-daily.ts`（image 內編成 `dist/ingest-daily.mjs`）由 K8s CronJob 每日 15:00 台北灌入。
 - **前端**：手機卡片 / 電腦表格響應式（`components/watchlist/`）,每 60s 輪詢;個股頁 `app/stock/[symbol]` 用 lightweight-charts 畫 K 線。
 
@@ -68,6 +73,6 @@ pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 
 「看盤 / 自選股」「持股損益追蹤」「大盤與產業總覽」「條件選股」已上線（全用 TWSE 免費源,未用到 FinMind）。後續（依價值）:
 1. 持股損益延伸:股利/除權息已上線(2026-07-03,手動記帳;自動抓除權息預填仍為 YAGNI),剩報表圖表。
 2. 大盤延伸:上櫃漲跌家數/法人、產業下鑽(v1 刻意不做,見 spec 的 YAGNI 節);大盤 K 線已上線(2026-07-03)。
-3. 選股延伸:上櫃股票、技術指標(等 DailyQuote 歷史累積,約 2026-10 起可做均線)、產業別篩選、儲存自訂策略(v1 刻意不做,見 spec 的 YAGNI 節)。
+3. 選股延伸:策略推薦(多因子評分)已上線(2026-07-03);上櫃股票、技術指標(等 DailyQuote 歷史累積,約 2026-10 起可做均線)、產業別篩選、儲存自訂策略(v1 刻意不做,見 spec 的 YAGNI 節)。
 
 v1 polish 全數完成(2026-07-03):拖曳排序、盤後標示、成交量統一、AddStock debounce、選股一鍵加自選、大盤指數列(首頁,`/api/market/indices`)+ 卡片迷你走勢線(近月收盤,`/api/watchlist/sparklines`;歷史以 `pnpm backfill:history` 回填自選∪持股近 2 月,新自選靠每日 ingest 累積)。
