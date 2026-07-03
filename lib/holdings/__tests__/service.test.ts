@@ -107,3 +107,31 @@ describe("holdings service", () => {
     ]);
   });
 });
+
+describe("股利交易", () => {
+  it("配股計入持股,刪配股導致超賣被拒", async () => {
+    const p = makeMock();
+    await addTransaction("u1", buy(), p);
+    await addTransaction("u1", {
+      symbol: "2330", side: "DIV_STOCK", quantity: 100, price: 0,
+      fee: 0, tax: 0, date: new Date("2026-02-01"),
+    }, p);
+    await addTransaction("u1", {
+      symbol: "2330", side: "SELL", quantity: 1100, price: 120,
+      fee: 0, tax: 0, date: new Date("2026-03-01"),
+    }, p);
+    const divId = p._db.find((r: any) => r.side === "DIV_STOCK").id;
+    await expect(deleteTransaction("u1", divId, p)).rejects.toThrow(OversellError);
+  });
+  it("現金股利反映在 getPositions 的 dividendIncome", async () => {
+    const p = makeMock();
+    await addTransaction("u1", buy(), p);
+    await addTransaction("u1", {
+      symbol: "2330", side: "DIV_CASH", quantity: 1000, price: 2.5,
+      fee: 10, tax: 0, date: new Date("2026-02-01"),
+    }, p);
+    const [pos] = await getPositions("u1", p);
+    expect(pos.dividendIncome).toBe(2490);
+    expect(pos.shares).toBe(1000);
+  });
+});
