@@ -27,12 +27,28 @@ export default function ScreenerView() {
   const [sort, setSort] = useState(DEFAULT_PRESET.sort);
   const [panelOpen, setPanelOpen] = useState(false);
 
+  const [watched, setWatched] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     fetch("/api/screener")
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then(setSnapshot)
       .catch(() => setFailed(true));
+    // 已在自選的股票在結果列表顯示 ✓,避免重複加入
+    fetch("/api/watchlist")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((json) => setWatched(new Set((json.items ?? []).map((i: { stockSymbol: string }) => i.stockSymbol))))
+      .catch(() => {});
   }, []);
+
+  async function addToWatchlist(symbol: string) {
+    setWatched((w) => new Set(w).add(symbol)); // 樂觀更新
+    const res = await fetch("/api/watchlist", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol }),
+    });
+    if (!res.ok) setWatched((w) => { const next = new Set(w); next.delete(symbol); return next; });
+  }
 
   const conditions: Condition[] = useMemo(
     () => CONDITION_DEFS.filter((d) => enabled[d.field]).map((d) => ({ field: d.field, op: d.op, value: values[d.field] })),
@@ -86,7 +102,7 @@ export default function ScreenerView() {
         />
       )}
 
-      <ResultList rows={results} sort={sort} onSort={setSort} />
+      <ResultList rows={results} sort={sort} onSort={setSort} watched={watched} onAdd={addToWatchlist} />
     </div>
   );
 }

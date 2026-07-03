@@ -14,12 +14,30 @@ const COLS: { field: NumericField; label: string }[] = [
 
 const dash = (v: number | null, fmt: (n: number) => string) => (v == null ? "—" : fmt(v));
 
+function AddButton({
+  symbol, watched, onAdd,
+}: { symbol: string; watched: Set<string>; onAdd: (symbol: string) => void }) {
+  const added = watched.has(symbol);
+  return (
+    <button
+      disabled={added}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAdd(symbol); }}
+      className={`rounded px-2 py-1 text-xs ${added ? "text-gray-500" : "bg-white/5 text-gray-300"}`}
+      aria-label={added ? "已在自選" : "加入自選"}
+    >
+      {added ? "✓ 已加" : "＋自選"}
+    </button>
+  );
+}
+
 export default function ResultList({
-  rows, sort, onSort,
+  rows, sort, onSort, watched, onAdd,
 }: {
   rows: ScreenerRow[];
   sort: { field: NumericField; dir: "asc" | "desc" };
   onSort: (s: { field: NumericField; dir: "asc" | "desc" }) => void;
+  watched: Set<string>;
+  onAdd: (symbol: string) => void;
 }) {
   const shown = rows.slice(0, LIMIT);
   function clickSort(field: NumericField) {
@@ -61,6 +79,7 @@ export default function ResultList({
                   殖 {dash(r.dividendYield, (n) => `${n.toFixed(2)}%`)}・PE {dash(r.peRatio, (n) => n.toFixed(2))}
                 </div>
               </div>
+              <div className="ml-3"><AddButton symbol={r.symbol} watched={watched} onAdd={onAdd} /></div>
             </Link>
           );
         })}
@@ -76,6 +95,7 @@ export default function ResultList({
                 {col.label}{sort.field === col.field ? (sort.dir === "desc" ? " ▼" : " ▲") : ""}
               </th>
             ))}
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -91,6 +111,7 @@ export default function ResultList({
                 <td className="py-2 text-right">{dash(r.dividendYield, (n) => `${n.toFixed(2)}%`)}</td>
                 <td className="py-2 text-right">{dash(r.peRatio, (n) => n.toFixed(2))}</td>
                 <td className="py-2 text-right text-gray-400">{r.volumeLots.toLocaleString()}</td>
+                <td className="py-2 pl-3 text-right"><AddButton symbol={r.symbol} watched={watched} onAdd={onAdd} /></td>
               </tr>
             );
           })}
