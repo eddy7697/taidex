@@ -1,10 +1,20 @@
 "use client";
 import { useState } from "react";
-import { estimateFee, estimateTax } from "@/lib/holdings/fees";
+import { estimateFee, estimateTax, estimateNhi, DIV_TRANSFER_FEE } from "@/lib/holdings/fees";
+import type { Side } from "@/lib/holdings/positions";
 
-type Side = "BUY" | "SELL";
+const SIDE_OPTS: { value: Side; label: string; cls: string }[] = [
+  { value: "BUY", label: "買進", cls: "text-up" },
+  { value: "SELL", label: "賣出", cls: "text-down" },
+  { value: "DIV_CASH", label: "現金股利", cls: "text-amber-400" },
+  { value: "DIV_STOCK", label: "配股", cls: "text-amber-400" },
+];
 
-export default function AddTransaction({ onAdded }: { onAdded: () => void }) {
+export default function AddTransaction({
+  onAdded, sharesBySymbol,
+}: {
+  onAdded: () => void; sharesBySymbol: Record<string, number>;
+}) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<{ symbol: string; name: string }[]>([]);
@@ -27,12 +37,18 @@ export default function AddTransaction({ onAdded }: { onAdded: () => void }) {
     setResults(json.results ?? []);
   }
 
-  // 使用者沒手動改過費用欄時,隨股數/價格/方向自動重估
+  // 使用者沒手動改過費用欄時,隨股數/價格/型別自動重估
   function refreshEstimates(nextSide: Side, nextQty: string, nextPrice: string) {
     if (feeTouched) return;
+    if (nextSide === "DIV_STOCK") { setFee("0"); setTax("0"); return; }
     const qty = parseInt(nextQty, 10);
     const p = parseFloat(nextPrice);
     if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(p) || p <= 0) { setFee(""); setTax(""); return; }
+    if (nextSide === "DIV_CASH") {
+      setFee(String(DIV_TRANSFER_FEE));
+      setTax(String(estimateNhi(p * qty)));
+      return;
+    }
     setFee(String(estimateFee(p, qty)));
     setTax(nextSide === "SELL" ? String(estimateTax(p, qty)) : "0");
   }
@@ -43,12 +59,15 @@ export default function AddTransaction({ onAdded }: { onAdded: () => void }) {
     const qty = parseInt(quantity, 10);
     const prc = parseFloat(price);
     if (!Number.isInteger(qty) || qty <= 0) { setError("股數需為正整數"); return; }
-    if (!Number.isFinite(prc) || prc <= 0) { setError("價格需大於 0"); return; }
+    if (side !== "DIV_STOCK" && (!Number.isFinite(prc) || prc <= 0)) {
+      setError(side === "DIV_CASH" ? "每股股利需大於 0" : "價格需大於 0");
+      return;
+    }
     setBusy(true);
     const res = await fetch("/api/holdings/transactions", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        symbol: picked.symbol, side, quantity: qty, price: prc, date,
+        symbol: picked.symbol, side, quantity: qty, price: side === "DIV_STOCK" ? 0 : prc, date,
         ...(fee !== "" ? { fee: parseInt(fee, 10) || 0 } : {}),
         ...(tax !== "" ? { tax: parseInt(tax, 10) || 0 } : {}),
       }),
@@ -67,7 +86,7 @@ export default function AddTransaction({ onAdded }: { onAdded: () => void }) {
     return (
       <button onClick={() => setOpen(true)}
         className="mb-4 w-full rounded bg-[var(--card)] px-4 py-2 text-left text-gray-300">
-        ＋ 記一筆買賣
+        ＋ 記一筆買賣／股利
       </button>
     );
   }
@@ -83,7 +102,14 @@ export default function AddTransaction({ onAdded }: { onAdded: () => void }) {
           <ul className="absolute z-20 mt-1 w-full rounded bg-[var(--card)] shadow-lg">
             {results.map((r) => (
               <li key={r.symbol}>
-                <button onClick={() => { setPicked(r); setResults([]); }}
+                <button onClick={() => {
+                  setPicked(r); setResults([]);
+                  if (side === "DIV_CASH" && sharesBySymbol[r.symbol] > 0) {
+                    const q = String(sharesBySymbol[r.symbol]);
+                    setQuantity(q);
+                    refreshEstimates(side, q, price);
+                  }
+                }}
                   className="flex w-full justify-between px-4 py-2 hover:bg-white/5">
                   <span>{r.name}</span><span className="text-gray-400">{r.symbol}</span>
                 </button>
@@ -94,13 +120,21 @@ export default function AddTransaction({ onAdded }: { onAdded: () => void }) {
       </div>
 
       <div className="flex gap-2">
-        {(["BUY", "SELL"] as const).map((s) => (
-          <button key={s}
-            onClick={() => { setSide(s); refreshEstimates(s, quantity, price); }}
-            className={`flex-1 rounded py-2 ${side === s
-              ? `bg-white/10 font-bold ${s === "BUY" ? "text-up" : "text-down"}`
+        {SIDE_OPTS.map((o) => (
+          <button key={o.value}
+            onClick={() => {
+              setSide(o.value);
+              let nextQty = quantity;
+              if (o.value === "DIV_CASH" && picked && sharesBySymbol[picked.symbol] > 0) {
+                nextQty = String(sharesBySymbol[picked.symbol]);
+                setQuantity(nextQty);
+              }
+              refreshEstimates(o.value, nextQty, price);
+            }}
+            className={`flex-1 rounded py-2 text-sm ${side === o.value
+              ? `bg-white/10 font-bold ${o.cls}`
               : "bg-black/20 text-gray-400"}`}>
-            {s === "BUY" ? "買進" : "賣出"}
+            {o.label}
           </button>
         ))}
       </div>
@@ -116,32 +150,36 @@ export default function AddTransaction({ onAdded }: { onAdded: () => void }) {
               className="whitespace-nowrap rounded bg-black/20 px-2 text-xs text-gray-400">1張</button>
           </div>
         </label>
-        <label className="text-sm text-gray-400">
-          每股價格
-          <input inputMode="decimal" value={price}
-            onChange={(e) => { setPrice(e.target.value); refreshEstimates(side, quantity, e.target.value); }}
-            className="mt-1 w-full rounded bg-black/20 px-3 py-2 text-white outline-none" />
-        </label>
+        {side !== "DIV_STOCK" && (
+          <label className="text-sm text-gray-400">
+            {side === "DIV_CASH" ? "每股股利" : "每股價格"}
+            <input inputMode="decimal" value={price}
+              onChange={(e) => { setPrice(e.target.value); refreshEstimates(side, quantity, e.target.value); }}
+              className="mt-1 w-full rounded bg-black/20 px-3 py-2 text-white outline-none" />
+          </label>
+        )}
         <label className="text-sm text-gray-400">
           日期
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
             className="mt-1 w-full rounded bg-black/20 px-3 py-2 text-white outline-none" />
         </label>
-        <label className="text-sm text-gray-400">
-          手續費{side === "SELL" ? "+稅" : ""}(自動估算,可改)
-          <div className="mt-1 flex gap-1">
-            <input inputMode="numeric" value={fee}
-              onChange={(e) => { setFee(e.target.value); setFeeTouched(true); }}
-              placeholder="手續費"
-              className="w-full rounded bg-black/20 px-3 py-2 text-white outline-none" />
-            {side === "SELL" && (
-              <input inputMode="numeric" value={tax}
-                onChange={(e) => { setTax(e.target.value); setFeeTouched(true); }}
-                placeholder="證交稅"
+        {side !== "DIV_STOCK" && (
+          <label className="text-sm text-gray-400">
+            {side === "DIV_CASH" ? "匯費+健保補充費(可改)" : `手續費${side === "SELL" ? "+稅" : ""}(自動估算,可改)`}
+            <div className="mt-1 flex gap-1">
+              <input inputMode="numeric" value={fee}
+                onChange={(e) => { setFee(e.target.value); setFeeTouched(true); }}
+                placeholder={side === "DIV_CASH" ? "匯費" : "手續費"}
                 className="w-full rounded bg-black/20 px-3 py-2 text-white outline-none" />
-            )}
-          </div>
-        </label>
+              {(side === "SELL" || side === "DIV_CASH") && (
+                <input inputMode="numeric" value={tax}
+                  onChange={(e) => { setTax(e.target.value); setFeeTouched(true); }}
+                  placeholder={side === "DIV_CASH" ? "補充費" : "證交稅"}
+                  className="w-full rounded bg-black/20 px-3 py-2 text-white outline-none" />
+              )}
+            </div>
+          </label>
+        )}
       </div>
 
       {error && <p className="text-sm text-down">{error}</p>}

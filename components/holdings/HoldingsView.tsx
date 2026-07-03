@@ -29,7 +29,8 @@ export default function HoldingsView() {
 
   return (
     <div>
-      <AddTransaction onAdded={load} />
+      <AddTransaction onAdded={load}
+        sharesBySymbol={Object.fromEntries(positions.filter((p) => p.shares > 0).map((p) => [p.symbol, p.shares]))} />
       {summary && <SummaryBar summary={summary} />}
       <div className="mb-2 text-right text-xs text-gray-500">更新於 {updatedAt}</div>
 

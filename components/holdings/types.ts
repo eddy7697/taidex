@@ -6,6 +6,7 @@ export type ApiPosition = {
   totalCost: number;
   avgCost: number;
   realizedPnl: number;
+  dividendIncome: number;
   quote: Quote | null;
 };
 
@@ -15,12 +16,13 @@ export type ApiSummary = {
   unrealizedPnl: number;
   returnPct: number;
   realizedPnl: number;
+  dividendIncome: number;
 };
 
 export type ApiTxn = {
   id: string;
   stockSymbol: string;
-  side: "BUY" | "SELL";
+  side: "BUY" | "SELL" | "DIV_CASH" | "DIV_STOCK";
   quantity: number;
   price: number;
   fee: number;
