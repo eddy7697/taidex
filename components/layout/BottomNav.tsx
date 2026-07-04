@@ -13,7 +13,9 @@ const tabs = [
 export default function BottomNav() {
   const path = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-white/10 bg-[var(--card)] md:hidden">
+    // pb-[env(...)]:viewport-fit=cover 後頁面延伸到螢幕物理底部,
+    // 用 safe-area inset 墊高,深色 nav 底色蓋住 Home Indicator 區、tab 不被壓到
+    <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-white/10 bg-[var(--card)] pb-[env(safe-area-inset-bottom)] md:hidden">
       {tabs.map((t) => (
         <Link key={t.href} href={t.href}
           className={`flex-1 py-3 text-center text-sm ${path === t.href ? "text-up font-bold" : "text-gray-400"}`}>

@@ -5,7 +5,7 @@ export default function AppShell({
   title, children,
 }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-5xl pb-16 md:pb-0">
+    <div className="mx-auto max-w-5xl pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       <header className="relative flex items-center justify-between overflow-hidden border-b border-white/10 px-4 py-3">
         {/* 稜線裝飾:鏡像後光在右側,遠離左側標題 */}
         <img src="/textures/header.webp" alt="" aria-hidden
