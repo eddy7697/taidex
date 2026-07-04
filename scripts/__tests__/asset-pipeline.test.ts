@@ -7,11 +7,17 @@ describe("lumaToAlpha", () => {
     lumaToAlpha(px);
     expect(px[3]).toBe(0);
   });
-  it("亮金色線條保持不透明且色彩反預乘", () => {
-    // 半亮金 (200,150,20) → alpha=200,RGB 依 255/200 放大
+  it("深色底噪點(低於 floor)整個變全透明", () => {
+    // AI 生成圖的深藍底 (11,15,20) 不是純黑,必須被 floor 砍掉
+    const px = new Uint8Array([11, 15, 20, 255]);
+    lumaToAlpha(px, 28);
+    expect(px[3]).toBe(0);
+  });
+  it("亮金色線條保持不透明且色彩反預乘,alpha 依 floor 重縮放", () => {
+    // 半亮金 (200,150,20) → max=200,alpha=(200-28)*255/(255-28)≈193,RGB 依 255/200 放大
     const px = new Uint8Array([200, 150, 20, 255]);
-    lumaToAlpha(px);
-    expect(px[3]).toBe(200);
+    lumaToAlpha(px, 28);
+    expect(px[3]).toBe(Math.round(((200 - 28) * 255) / (255 - 28))); // 193
     expect(px[0]).toBe(255); // 200*255/200
     expect(px[1]).toBe(Math.round((150 * 255) / 200)); // 191
     expect(px[2]).toBe(Math.round((20 * 255) / 200)); // 26
