@@ -7,12 +7,13 @@ Taidex（對外網域 **tradex.nazo.com.tw**）——給投資新手（擁有者
 
 ```bash
 pnpm dev            # 本機開發
-pnpm test           # Vitest（137 tests）
+pnpm test           # Vitest（168 tests）
 pnpm build          # Next.js standalone build
 pnpm exec tsc --noEmit
 pnpm exec prisma migrate dev --name <desc>   # 新增 schema 變更時產生 migration
 pnpm ingest:daily   # 手動跑每日行情灌入（需可連 DB）
 pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 2;需可連 DB)
+pnpm assets:prepare    # 設計素材管線:public/taidex_assets/ 原始 PNG(gitignored)→ 透明化 WebP + app icon
 ```
 
 - 套件管理用 **pnpm**（corepack, v11）。Node 22。TypeScript strict。
@@ -35,10 +36,14 @@ pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 
   前端整包快照下發、調權重即時重排。頁面 `/strategy`,無 DB 表。
 - **每日行情** `scripts/ingest-daily.ts`（image 內編成 `dist/ingest-daily.mjs`）由 K8s CronJob 每日 15:00 台北灌入。
 - **前端**：手機卡片 / 電腦表格響應式（`components/watchlist/`）,每 60s 輪詢;個股頁 `app/stock/[symbol]` 用 lightweight-charts 畫 K 線。
+- **設計語言**「金脈 Golden Ridge」（稜線=走勢比喻,spec 見下）:品牌金 token、`components/ui/EmptyState.tsx`（watchlist/holdings/screener/closed 四 variant 空狀態插圖）、素材管線 `scripts/prepare-assets.mjs`（亮度轉 alpha 去背 + 邊緣淡出,純函式 `asset-pipeline.lib.mjs` 有測試）。
 
 ## 慣例（勿違反）
 
 - **紅漲綠跌**（台股慣例,與歐美相反）。顏色集中在 CSS 變數 `--up`(紅)/`--down`(綠) 與 `lib/format.ts` 的 `changeColorClass`;元件不得寫死 hex。Tailwind `content` 已含 `./lib/**`（否則 `text-down` 會被 purge）。
+- 品牌金 `--brand: #f59e0b` / `--brand-bright: #fbbf24`（Tailwind `brand`/`brand-bright`）——品牌與素材一律避開紅綠,留給漲跌語意。
+- 背景紋理放 `html` 不放 `body`（html 有背景時 body 背景不會傳播到畫布,短頁面下緣會露黑帶）;勿用 `background-attachment: fixed`（iOS 不可靠）。
+- **iOS safe area**：viewport 已設 `viewportFit: "cover"`,固定在底部的元素（如 BottomNav）必須墊 `env(safe-area-inset-bottom)`——否則 LIFF 的 WKWebView 底部露白條、tab 被 Home Indicator 壓到（2026-07-05 iPhone 實機發現）。
 - 價格顯示用 `lib/format.ts`（`fmtPrice`/`fmtSignedPct`）。
 - 免費資料源：MIS（盤中）、證交所/櫃買 OpenAPI（每日）、FinMind（基本面,未來）。
 
@@ -49,6 +54,7 @@ pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 
    - `auth.config.ts`：無 Prisma、edge-safe，供 `middleware.ts` 使用。
    - `auth.ts`：spread authConfig 再加 `PrismaAdapter` + `session.strategy: "jwt"`，供 Node runtime（route handler / server component）。
    - **絕不可**把 Prisma adapter 或 database session 放進 middleware 路徑——middleware 在 **Edge runtime** 執行,Prisma 不能在那跑,會導致每個請求失敗、登入後被彈回 /login。
+3. **middleware matcher 必須排除靜態素材**（現為 `icon.png|brand/|empty/|textures/`）——否則未登入請求被 302 到 /login,登入頁自己的 Logo/背景載不出。**dev 的 Turbopack 不讓 public/ 檔過 middleware,此類問題只在 prod 出現**,要用 `pnpm build && pnpm start` 驗證;新增 public/ 子目錄或 metadata 圖檔時同步更新排除清單（2026-07-05 prod 踩雷）。
 
 ## 資料庫 / Migration
 
@@ -68,6 +74,7 @@ pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 
 - 持股損益:`docs/superpowers/specs/2026-07-03-taidex-holdings-design.md` + `docs/superpowers/plans/2026-07-03-taidex-holdings.md`;股利/除權息:`docs/superpowers/specs/2026-07-03-taidex-dividends-design.md` + `docs/superpowers/plans/2026-07-03-taidex-dividends.md`
 - 大盤總覽:`docs/superpowers/specs/2026-07-03-taidex-market-overview-design.md`
 - 條件選股:`docs/superpowers/specs/2026-07-03-taidex-screener-design.md` + `docs/superpowers/plans/2026-07-03-taidex-screener.md`
+- 設計語言:`docs/superpowers/specs/2026-07-05-taidex-design-language.md`（含 AI 生圖提示詞）+ `docs/superpowers/plans/2026-07-05-taidex-design-language.md`
 
 ## 路線圖
 
@@ -77,3 +84,5 @@ pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 
 3. 選股延伸:策略推薦(多因子評分)已上線(2026-07-03);上櫃股票、技術指標(等 DailyQuote 歷史累積,約 2026-10 起可做均線)、產業別篩選、儲存自訂策略(v1 刻意不做,見 spec 的 YAGNI 節)。
 
 v1 polish 全數完成(2026-07-03):拖曳排序、盤後標示、成交量統一、AddStock debounce、選股一鍵加自選、大盤指數列(首頁,`/api/market/indices`)+ 卡片迷你走勢線(近月收盤,`/api/watchlist/sparklines`;歷史以 `pnpm backfill:history` 回填自選∪持股近 2 月,新自選靠每日 ingest 累積)。
+
+設計語言「金脈 Golden Ridge」已上線(2026-07-05,PR #1/#2):品牌識別、空狀態插圖、背景紋理、iOS safe area 全數導入 prod。
