@@ -33,7 +33,7 @@ const invert = (p: number | null): number | null => (p == null ? null : 100 - p)
 const mean2 = (a: number | null, b: number | null): number | null =>
   a == null && b == null ? null : a == null ? b : b == null ? a : (a + b) / 2;
 
-// rows 應已通過 inUniverse 門檻;回傳與 rows 逐列對齊的五因子分數(0–100 或 null)
+// rows 應已通過 inUniverse 門檻;回傳與 rows 逐列對齊的六因子分數(0–100 或 null)
 export function computeFactorScores(rows: FactorRow[]): FactorScores[] {
   const peLow = percentileRanks(rows.map((r) => r.peRatio)).map(invert);
   const pbLow = percentileRanks(rows.map((r) => r.pbRatio)).map(invert);
