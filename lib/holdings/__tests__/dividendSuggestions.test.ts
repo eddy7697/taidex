@@ -67,3 +67,70 @@ describe("buildDividendSuggestions", () => {
     expect(r2.actionable.filter((s) => s.kind === "CASH")).toHaveLength(1); // 現金 60 元照給
   });
 });
+
+describe("季配息不互相誤判(nearest-anchor 分派)", () => {
+  // 00878 型季配息 ETF:兩期間隔(exDate 1/1 → 4/1)約 91 天,落在判定窗(−7..+120=127 天)內。
+  const quarterly = [
+    { stockSymbol: "00878", kind: "CASH" as const, exDate: d("2026-01-01"), perShare: 0.35, paymentDate: d("2026-01-28"), year: "115年" }, // Q1
+    { stockSymbol: "00878", kind: "CASH" as const, exDate: d("2026-04-01"), perShare: 0.35, paymentDate: d("2026-04-28"), year: "115年" }, // Q2
+  ];
+  const holding = txn({ stockSymbol: "00878", side: "BUY", quantity: 10000, date: d("2025-06-01") });
+
+  it("regression:交易日=Q1 payment(1/28),不落在 Q2 窗內 → 僅 Q1 記帳,Q2 仍為 actionable", () => {
+    // Q1 窗 [2025-12-25, 2026-05-01] 含 1/28;Q2 窗 [2026-03-25, 2026-07-30] 不含 1/28 → 修法前後皆通過
+    const q1Recorded = txn({ stockSymbol: "00878", side: "DIV_CASH", quantity: 10000, price: 0.35, date: d("2026-01-28") });
+    const { actionable } = buildDividendSuggestions([holding, q1Recorded], quarterly, d("2026-05-01"));
+    expect(actionable).toHaveLength(1);
+    expect(actionable[0].exDate).toBe("2026-04-01"); // Q2
+  });
+
+  it("修法前會誤判:交易日=Q2 payment(4/28)落在兩期窗內 → 最近錨定應只記 Q2,Q1 仍為 actionable", () => {
+    // Q1 窗 [2025-12-25, 2026-05-01] 含 4/28;Q2 窗 [2026-03-25, 2026-07-30] 也含 4/28。
+    // 錨定距離:|4/28−1/28|=90 天 vs |4/28−4/28|=0 天 → 最近為 Q2,Q1 不應被視為已記帳。
+    // 修法前(單純窗內即記帳):兩期都會被這筆交易標記已記帳 → actionable 會漏掉 Q1(此案為修法前後行為差異的核心斷言)。
+    const q2Recorded = txn({ stockSymbol: "00878", side: "DIV_CASH", quantity: 10000, price: 0.35, date: d("2026-04-28") });
+    const { actionable } = buildDividendSuggestions([holding, q2Recorded], quarterly, d("2026-05-01"));
+    expect(actionable).toHaveLength(1);
+    expect(actionable[0].exDate).toBe("2026-01-01"); // Q1 仍待記帳
+  });
+
+  it("距離相同(tie)時分派給較早的事件", () => {
+    // 兩期錨定(payment)相距 200 天,交易日落在正中間 → 距兩者恰好相等 → 依規則分派給較早事件(Q1)。
+    const midDate = new Date((d("2026-01-28").getTime() + d("2026-04-28").getTime()) / 2);
+    const tieTxn = txn({ stockSymbol: "00878", side: "DIV_CASH", quantity: 10000, price: 0.35, date: midDate });
+    const { actionable } = buildDividendSuggestions([holding, tieTxn], quarterly, d("2026-05-01"));
+    expect(actionable).toHaveLength(1);
+    expect(actionable[0].exDate).toBe("2026-04-01"); // Q2 仍待記帳(Q1 被 tie 分派記錄)
+  });
+});
+
+describe("已記帳判定窗邊界(單一事件,不受 nearest-anchor 影響)", () => {
+  const single = [
+    { stockSymbol: "00878", kind: "CASH" as const, exDate: d("2026-01-01"), perShare: 0.35, paymentDate: null, year: "115年" },
+  ];
+  const holding = txn({ stockSymbol: "00878", side: "BUY", quantity: 10000, date: d("2025-06-01") });
+
+  it("交易日恰為 exDate−7 → 視為已記帳", () => {
+    const boundary = txn({ stockSymbol: "00878", side: "DIV_CASH", quantity: 10000, price: 0.35, date: d("2025-12-25") });
+    const { actionable } = buildDividendSuggestions([holding, boundary], single, d("2026-05-01"));
+    expect(actionable).toHaveLength(0);
+  });
+
+  it("交易日恰為 exDate+120 → 視為已記帳", () => {
+    const boundary = txn({ stockSymbol: "00878", side: "DIV_CASH", quantity: 10000, price: 0.35, date: d("2026-05-01") });
+    const { actionable } = buildDividendSuggestions([holding, boundary], single, d("2026-05-01"));
+    expect(actionable).toHaveLength(0);
+  });
+
+  it("健保補充費邊界:現金股利金額恰為 20000 → 稅額 round(20000×0.0211)=422", () => {
+    const preciseEvent = [
+      { stockSymbol: "00878", kind: "CASH" as const, exDate: d("2026-01-01"), perShare: 2, paymentDate: null, year: "115年" },
+    ];
+    const buy = txn({ stockSymbol: "00878", side: "BUY", quantity: 10000, date: d("2025-06-01") }); // 10000×2=20000
+    const { actionable } = buildDividendSuggestions([buy], preciseEvent, d("2026-05-01"));
+    expect(actionable).toHaveLength(1);
+    expect(actionable[0].amount).toBe(20000);
+    expect(actionable[0].tax).toBe(Math.round(20000 * 0.0211));
+    expect(actionable[0].tax).toBe(422);
+  });
+});

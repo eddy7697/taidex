@@ -27,13 +27,33 @@ export function sharesAsOf(txns: Txn[], symbol: string, date: Date): number {
 const RECORD_WINDOW_BEFORE = 7 * 86_400_000;
 const RECORD_WINDOW_AFTER = 120 * 86_400_000; // 現金發放常在除息後 1 個月+,使用者可能以入帳日記帳
 
-function isRecorded(txns: Txn[], e: DividendEventLike): boolean {
+// 季配息 ETF(0056/00878/00919 等)同代號同型別的相鄰兩期間隔(~91 天)落在判定窗(127 天)內,
+// 單純用「日期落在窗內」會讓一筆交易同時判定兩期已記帳。改以「錨定日(paymentDate ?? exDate)
+// 最近」把交易唯一分派給一個事件;窗口資格仍須滿足,只是不再是唯一條件。
+const anchorMs = (e: DividendEventLike) => (e.paymentDate ?? e.exDate).getTime();
+
+function nearestEvent(t: Txn, candidates: DividendEventLike[]): DividendEventLike | null {
+  let best: DividendEventLike | null = null;
+  let bestDist = Infinity;
+  for (const ev of candidates) {
+    const dist = Math.abs(t.date.getTime() - anchorMs(ev));
+    // 距離相同時取較早的事件(exDate 較小)
+    if (dist < bestDist || (dist === bestDist && best && ev.exDate.getTime() < best.exDate.getTime())) {
+      best = ev;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+function isRecorded(txns: Txn[], e: DividendEventLike, candidates: DividendEventLike[]): boolean {
   const side = e.kind === "CASH" ? "DIV_CASH" : "DIV_STOCK";
-  return txns.some(
-    (t) => t.stockSymbol === e.stockSymbol && t.side === side &&
-      t.date.getTime() >= e.exDate.getTime() - RECORD_WINDOW_BEFORE &&
-      t.date.getTime() <= e.exDate.getTime() + RECORD_WINDOW_AFTER,
-  );
+  return txns.some((t) => {
+    if (t.stockSymbol !== e.stockSymbol || t.side !== side) return false;
+    if (t.date.getTime() < e.exDate.getTime() - RECORD_WINDOW_BEFORE) return false;
+    if (t.date.getTime() > e.exDate.getTime() + RECORD_WINDOW_AFTER) return false;
+    return nearestEvent(t, candidates) === e;
+  });
 }
 
 const iso = (dt: Date) => dt.toISOString().slice(0, 10);
@@ -57,14 +77,23 @@ function toSuggestion(e: DividendEventLike, sharesAtEx: number): DividendSuggest
   };
 }
 
+const groupKey = (symbol: string, kind: "CASH" | "STOCK") => `${symbol}|${kind}`;
+
 export function buildDividendSuggestions(
   txns: Txn[], events: DividendEventLike[], today: Date,
 ): { actionable: DividendSuggestion[]; upcoming: DividendSuggestion[] } {
+  const byGroup = new Map<string, DividendEventLike[]>();
+  for (const e of events) {
+    const key = groupKey(e.stockSymbol, e.kind);
+    const arr = byGroup.get(key);
+    if (arr) arr.push(e); else byGroup.set(key, [e]);
+  }
   const actionable: DividendSuggestion[] = [];
   const upcoming: DividendSuggestion[] = [];
   for (const e of [...events].sort((a, b) => a.exDate.getTime() - b.exDate.getTime())) {
     if (e.exDate.getTime() <= today.getTime()) {
-      if (isRecorded(txns, e)) continue;
+      const candidates = byGroup.get(groupKey(e.stockSymbol, e.kind))!;
+      if (isRecorded(txns, e, candidates)) continue;
       const s = toSuggestion(e, sharesAsOf(txns, e.stockSymbol, e.exDate));
       if (s) actionable.push(s);
     } else {
