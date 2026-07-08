@@ -53,4 +53,15 @@ describe("parseTwseDaily num handling", () => {
     const rows = parseTwseDaily(sampleWithTripleDash);
     expect(rows).toHaveLength(0);
   });
+  it("close 為 0 的列(無成交/異常)被略過", () => {
+    const sampleWithZeroPrice = [
+      {
+        Code: "9999", Name: "異常股",
+        OpeningPrice: "0.00", HighestPrice: "0.00",
+        LowestPrice: "0.00", ClosingPrice: "0.00", TradeVolume: "0",
+      },
+    ];
+    const rows = parseTwseDaily(sampleWithZeroPrice);
+    expect(rows).toHaveLength(0);
+  });
 });

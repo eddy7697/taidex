@@ -27,7 +27,7 @@ export function parseTwseDaily(json: unknown): DailyRow[] {
   for (const r of arr) {
     const symbol = (r.Code ?? "").trim();
     const close = num(r.ClosingPrice);
-    if (!symbol || close == null) continue;
+    if (!symbol || close == null || close <= 0) continue;
     out.push({
       symbol,
       name: (r.Name ?? "").trim(),

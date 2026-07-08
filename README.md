@@ -147,7 +147,7 @@ app/                    # 頁面與 API routes
 ├── liff/               # LINE LIFF 入口
 └── api/                # watchlist / holdings / market / screener / strategy / stocks / auth
 
-lib/                    # 領域邏輯（皆有 Vitest 測試，全倉共 168 tests）
+lib/                    # 領域邏輯（皆有 Vitest 測試，全倉共 189 tests）
 ├── quotes/             # quote-service 抽象層（MIS 盤中 + DB 盤後，30s 快取與回退）
 ├── market/hours.ts     # 台股交易時段判斷（Asia/Taipei 平日 09:00–13:30）
 ├── watchlist/          # 自選股 CRUD + 排序（userId 隔離）
@@ -184,7 +184,7 @@ prisma/                 # schema + migrations（已 commit，部署時自動 mig
 - **認證**：Auth.js v5（next-auth beta）+ LINE provider + LIFF
 - **資料庫**：Prisma 6 + Cloud SQL for MySQL 8
 - **UI**：Tailwind CSS、dnd-kit（拖曳排序）、lightweight-charts（K 線）
-- **測試**：Vitest（168 tests），開發流程走 **TDD**（先寫失敗測試再實作）
+- **測試**：Vitest（189 tests），開發流程走 **TDD**（先寫失敗測試再實作）
 - **套件管理**：pnpm（corepack）、Node 22
 
 ## 開發

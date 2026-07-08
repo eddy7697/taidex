@@ -25,4 +25,14 @@ describe("parseTpexDaily", () => {
     expect(parseTpexDaily(null)).toEqual([]);
     expect(parseTpexDaily({})).toEqual([]);
   });
+  it("close 為 0 的列(無成交/異常)被略過", () => {
+    const sampleWithZeroPrice = [
+      {
+        Date: "1150708", SecuritiesCompanyCode: "5000", CompanyName: "異常股",
+        Close: "0.00", Open: "0.00", High: "0.00", Low: "0.00", TradingShares: "0",
+      },
+    ];
+    const rows = parseTpexDaily(sampleWithZeroPrice);
+    expect(rows).toHaveLength(0);
+  });
 });

@@ -18,7 +18,7 @@ export function parseTpexDaily(json: unknown): TpexDailyRow[] {
   for (const r of arr) {
     const symbol = (r.SecuritiesCompanyCode ?? "").trim();
     const close = num(r.Close);
-    if (!SYMBOL_RE.test(symbol) || close == null) continue; // 權證/指數/無成交列跳過
+    if (!SYMBOL_RE.test(symbol) || close == null || close <= 0) continue; // 權證/指數/無成交列跳過
     out.push({
       symbol,
       name: (r.CompanyName ?? "").trim(),

@@ -46,7 +46,8 @@ async function main() {
 
   async function backfillOne(symbol: string, i: number, total: number) {
     const rows = await getStockPrice(client, symbol, startIso, endIso);
-    for (const batch of chunk(rows, 1000)) {
+    // 新到舊寫入:硬中斷留下的洞在「最早段」,重跑時 shouldSkipSymbol 不會誤跳、自我修復
+    for (const batch of chunk([...rows].reverse(), 1000)) {
       const res = await prisma.dailyQuote.createMany({
         data: batch.map((r) => ({
           stockSymbol: symbol,
