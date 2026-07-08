@@ -13,6 +13,7 @@ pnpm exec tsc --noEmit
 pnpm exec prisma migrate dev --name <desc>   # 新增 schema 變更時產生 migration
 pnpm ingest:daily   # 手動跑每日行情灌入（需可連 DB）
 pnpm backfill:history  # 回填自選∪持股近 N 月日線(--months=N,預設 2;需可連 DB)
+pnpm backfill:finmind   # FinMind 全市場 5 年日線回填(--years/--limit;需 FINMIND_TOKEN+DB)
 pnpm assets:prepare    # 設計素材管線:public/nazodex_assets/ 原始 PNG(gitignored)→ 透明化 WebP + app icon
 ```
 
@@ -34,7 +35,8 @@ pnpm assets:prepare    # 設計素材管線:public/nazodex_assets/ 原始 PNG(gi
   `service.getStrategySnapshot()` 10min 快取、月均/T86 失敗對應因子 null(容錯);
   百分位/加權計分為前端計分純函式(`engine.ts`,於 Vitest/Node 測試;評分宇宙 ≥200 張且 ≥5 元、缺因子權重再正規化、<3 因子或主因子(最高權重)缺值不進榜),
   前端整包快照下發、調權重即時重排。頁面 `/strategy`,無 DB 表。
-- **每日行情** `scripts/ingest-daily.ts`（image 內編成 `dist/ingest-daily.mjs`）由 K8s CronJob 每日 15:00 台北灌入。
+- **每日行情** `scripts/ingest-daily.ts`（image 內編成 `dist/ingest-daily.mjs`）由 K8s CronJob 每日 15:00 台北灌入;TWSE(上市)+TPEX(上櫃)雙源獨立容錯(單源失敗不影響另一源),每月 1 日額外用 FinMind 刷新股票宇宙(市場別/產業別)。
+- **FinMind client 層** `lib/finmind/`：節流(600 calls/hr)/限流退避/錯誤分類,只走 script/cron 路徑不進使用者請求;`scripts/backfill-finmind.ts`（`pnpm backfill:finmind`）用它做全市場 5 年日線回填,斷點續跑 + `skipDuplicates` 冪等。
 - **前端**：手機卡片 / 電腦表格響應式（`components/watchlist/`）,每 60s 輪詢;個股頁 `app/stock/[symbol]` 用 lightweight-charts 畫 K 線。
 - **設計語言**「金脈 Golden Ridge」（稜線=走勢比喻,spec 見下）:品牌金 token、`components/ui/EmptyState.tsx`（watchlist/holdings/screener/closed 四 variant 空狀態插圖）、素材管線 `scripts/prepare-assets.mjs`（亮度轉 alpha 去背 + 邊緣淡出,純函式 `asset-pipeline.lib.mjs` 有測試）。
 
@@ -45,7 +47,7 @@ pnpm assets:prepare    # 設計素材管線:public/nazodex_assets/ 原始 PNG(gi
 - 背景紋理放 `html` 不放 `body`（html 有背景時 body 背景不會傳播到畫布,短頁面下緣會露黑帶）;勿用 `background-attachment: fixed`（iOS 不可靠）。
 - **iOS safe area**：viewport 已設 `viewportFit: "cover"`,固定在底部的元素（如 BottomNav）必須墊 `env(safe-area-inset-bottom)`——否則 LIFF 的 WKWebView 底部露白條、tab 被 Home Indicator 壓到（2026-07-05 iPhone 實機發現）。
 - 價格顯示用 `lib/format.ts`（`fmtPrice`/`fmtSignedPct`）。
-- 免費資料源：MIS（盤中）、證交所/櫃買 OpenAPI（每日）、FinMind（基本面,未來）。
+- 免費資料源：MIS（盤中）、證交所/櫃買 OpenAPI（每日）、FinMind（歷史回填/宇宙/除權息,`FINMIND_TOKEN`）。
 
 ## 認證雷（已修,務必維持）
 
