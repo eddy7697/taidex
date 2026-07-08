@@ -40,3 +40,28 @@ describe("parseTwseDaily change/date", () => {
     expect(rows[0].date).toBeNull();
   });
 });
+
+describe("parseTwseDaily num handling", () => {
+  it("ClosingPrice: '---' 的列被略過", () => {
+    const sampleWithTripleDash = [
+      {
+        Code: "9999", Name: "測試股",
+        OpeningPrice: "---", HighestPrice: "---",
+        LowestPrice: "---", ClosingPrice: "---", TradeVolume: "0",
+      },
+    ];
+    const rows = parseTwseDaily(sampleWithTripleDash);
+    expect(rows).toHaveLength(0);
+  });
+  it("close 為 0 的列(無成交/異常)被略過", () => {
+    const sampleWithZeroPrice = [
+      {
+        Code: "9999", Name: "異常股",
+        OpeningPrice: "0.00", HighestPrice: "0.00",
+        LowestPrice: "0.00", ClosingPrice: "0.00", TradeVolume: "0",
+      },
+    ];
+    const rows = parseTwseDaily(sampleWithZeroPrice);
+    expect(rows).toHaveLength(0);
+  });
+});

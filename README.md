@@ -147,7 +147,7 @@ app/                    # 頁面與 API routes
 ├── liff/               # LINE LIFF 入口
 └── api/                # watchlist / holdings / market / screener / strategy / stocks / auth
 
-lib/                    # 領域邏輯（皆有 Vitest 測試，全倉共 168 tests）
+lib/                    # 領域邏輯（皆有 Vitest 測試，全倉共 189 tests）
 ├── quotes/             # quote-service 抽象層（MIS 盤中 + DB 盤後，30s 快取與回退）
 ├── market/hours.ts     # 台股交易時段判斷（Asia/Taipei 平日 09:00–13:30）
 ├── watchlist/          # 自選股 CRUD + 排序（userId 隔離）
@@ -168,14 +168,15 @@ prisma/                 # schema + migrations（已 commit，部署時自動 mig
 | 資料 | 來源 | 更新方式 |
 |---|---|---|
 | 盤中即時報價 / 指數 | 證交所 MIS | 盤中即時，30 秒記憶體快取 |
-| 每日收盤行情 | TWSE OpenAPI | K8s CronJob 每日 15:00 灌入 DB |
+| 每日收盤行情 | TWSE（上市）+ TPEX（上櫃）OpenAPI | K8s CronJob 每日 15:00 灌入 DB,雙源獨立容錯 |
+| 歷史回填 / 股票宇宙 / 除權息 | FinMind（需 `FINMIND_TOKEN`） | `pnpm backfill:finmind` 手動全市場回填;每月 1 日 ingest 自動刷新宇宙 |
 | 估值（PE / 殖利率 / PB） | TWSE `BWIBBU_ALL` | 10 分鐘快取 |
 | 漲跌家數 / 三大法人 | TWSE rwd JSON | 10 分鐘快取 |
 | 產業強弱 | TWSE `MI_INDEX` 類指數 | 10 分鐘快取 |
 | 大盤歷史 K 線 | TWSE `MI_5MINS_HIST` + TPEX `indexInfo/inx` | 按月抓取合併、300ms 節流 |
 | 月均價 / 法人買賣超 | TWSE `STOCK_DAY_AVG_ALL` / rwd `T86` | 10 分鐘快取 |
 
-全部免費、無 API key。各區塊獨立容錯：單一來源失敗只讓對應欄位或區塊降級，不影響整頁。
+全部免費（FinMind 需申請免費 `FINMIND_TOKEN`，其餘無 API key）。各區塊獨立容錯：單一來源失敗只讓對應欄位或區塊降級，不影響整頁。
 
 ## 技術棧
 
@@ -183,7 +184,7 @@ prisma/                 # schema + migrations（已 commit，部署時自動 mig
 - **認證**：Auth.js v5（next-auth beta）+ LINE provider + LIFF
 - **資料庫**：Prisma 6 + Cloud SQL for MySQL 8
 - **UI**：Tailwind CSS、dnd-kit（拖曳排序）、lightweight-charts（K 線）
-- **測試**：Vitest（168 tests），開發流程走 **TDD**（先寫失敗測試再實作）
+- **測試**：Vitest（189 tests），開發流程走 **TDD**（先寫失敗測試再實作）
 - **套件管理**：pnpm（corepack）、Node 22
 
 ## 開發
@@ -198,6 +199,7 @@ pnpm build               # 產線 build（standalone）
 # 資料工具（需可連 DB）
 pnpm ingest:daily        # 手動跑每日行情灌入
 pnpm backfill:history    # 回填自選∪持股近 N 月日線（--months=N，預設 2）
+pnpm backfill:finmind    # FinMind 全市場 5 年日線回填（--years/--limit；需 FINMIND_TOKEN）
 
 # 設計素材（來源 PNG 放 public/nazodex_assets/，不進 repo）
 pnpm assets:prepare      # 透明化+邊緣淡出+分類輸出 WebP 與 app icon
@@ -238,7 +240,7 @@ v1（看盤 / 自選股、持股損益、大盤總覽、條件選股、策略推
 ### 長期（新能力）
 
 7. **除權息行事曆與自動預填**：目前股利記帳是手動輸入（v1 判定自動抓取為 YAGNI）。長期可接 TWSE 除權息公告，對持股自動產生待確認的股利交易草稿——記帳從「主動記」變成「按一下確認」。
-8. **FinMind 基本面資料**：營收、EPS、財報等基本面（架構上已預留為未來資料源），可作為策略推薦的第六因子（品質因子），也能在個股頁加基本面分頁。
+8. **FinMind 基本面資料**：FinMind 目前只用於歷史回填/股票宇宙/除權息；營收、EPS、財報等基本面尚未串接，可作為策略推薦的第六因子（品質因子），也能在個股頁加基本面分頁。
 9. **到價 / 事件通知**：既然登入即是 LINE，天然適合走 LINE Notify / Messaging API 推播——自選股到價提醒、持股除權息前提醒、策略榜單異動摘要。這會把 NazoDex 從「主動打開看」升級為「重要時刻找上門」。
 10. **多市場**：quote-service 的「換源 / 加源只動這一層」設計，理論上可延伸美股或 ETF 專區——但這超出「給家人用的台股工具」的初衷，除非真實需求出現，否則維持 YAGNI。
 
