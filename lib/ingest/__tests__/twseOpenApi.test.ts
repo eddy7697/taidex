@@ -40,3 +40,17 @@ describe("parseTwseDaily change/date", () => {
     expect(rows[0].date).toBeNull();
   });
 });
+
+describe("parseTwseDaily num handling", () => {
+  it("ClosingPrice: '---' 的列被略過", () => {
+    const sampleWithTripleDash = [
+      {
+        Code: "9999", Name: "測試股",
+        OpeningPrice: "---", HighestPrice: "---",
+        LowestPrice: "---", ClosingPrice: "---", TradeVolume: "0",
+      },
+    ];
+    const rows = parseTwseDaily(sampleWithTripleDash);
+    expect(rows).toHaveLength(0);
+  });
+});

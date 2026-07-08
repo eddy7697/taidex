@@ -7,16 +7,16 @@ export type DailyRow = {
 };
 
 // 民國 "1150702" → "2026-07-02"
-function rocToIso(d: string | undefined): string | null {
+export function rocToIso(d: string | undefined): string | null {
   const m = d?.match(/^(\d{3})(\d{2})(\d{2})$/);
   if (!m) return null;
   return `${Number(m[1]) + 1911}-${m[2]}-${m[3]}`;
 }
 
-function num(s: string | undefined): number | null {
+export function num(s: string | undefined): number | null {
   if (s == null) return null;
   const cleaned = s.replace(/,/g, "");
-  if (cleaned === "-" || cleaned === "") return null;
+  if (/^-{1,3}$/.test(cleaned) || cleaned === "") return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
