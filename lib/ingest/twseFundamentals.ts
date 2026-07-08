@@ -35,7 +35,7 @@ export function parseMonthRevenue(json: unknown): MonthRevenueRow[] {
     const symbol = (r["公司代號"] ?? "").trim();
     const month = rocYmToIsoMonth(r["資料年月"]);
     const revenueStr = (r["營業收入-當月營收"] ?? "").replace(/,/g, "").trim();
-    if (!symbol || !month || !/^\d+$/.test(revenueStr)) continue;
+    if (!symbol || !month || !/^-?\d+$/.test(revenueStr)) continue;
     out.push({
       symbol,
       month,

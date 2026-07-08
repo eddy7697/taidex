@@ -13,9 +13,9 @@ export type StrategyDeps = {
   revenueYoy?: () => Promise<Map<string, number>>;
 };
 
-// 近 70 天內每檔最新一期 yoyPct(公告時點參差,70 天涵蓋上一期+緩衝);失敗或無資料回空 Map
+// 近 100 天內每檔最新一期 yoyPct(月營收下月 10 日後才換檔,70 天會在每月交接期斷檔;asc 順序讓較新月份覆蓋)
 export async function fetchLatestRevenueYoy(): Promise<Map<string, number>> {
-  const since = new Date(Date.now() - 70 * 86_400_000);
+  const since = new Date(Date.now() - 100 * 86_400_000);
   const rows = await prisma.monthlyRevenue.findMany({
     where: { month: { gte: since }, yoyPct: { not: null } },
     orderBy: { month: "asc" },

@@ -154,7 +154,7 @@ lib/                    # 領域邏輯（皆有 Vitest 測試，全倉共 200 te
 ├── holdings/           # 交易流水帳、平均成本法推導、費用估算
 ├── market-overview/    # 指數 / 漲跌家數 / 法人 / 產業 / 大盤 K 線
 ├── screener/           # 快照 join + 前端過濾排序純函式
-├── strategy/           # 五因子截面百分位評分
+├── strategy/           # 六因子截面百分位評分
 └── ingest/             # 每日行情灌入
 
 scripts/ingest-daily.ts # K8s CronJob 每日 15:00 灌入收盤行情

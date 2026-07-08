@@ -1,5 +1,5 @@
 import type { EpsPoint, RevenuePoint } from "@/lib/fundamentals/service";
-import { fmtSignedPct } from "@/lib/format";
+import { fmtSignedPct, changeColorClass } from "@/lib/format";
 
 export default function FundamentalsSection({ revenues, eps }: { revenues: RevenuePoint[]; eps: EpsPoint[] }) {
   if (revenues.length === 0 && eps.length === 0) return null;
@@ -14,7 +14,7 @@ export default function FundamentalsSection({ revenues, eps }: { revenues: Reven
             <span>
               {latest.revenueBillions >= 10 ? latest.revenueBillions.toFixed(0) : latest.revenueBillions.toFixed(2)} 億
               {latest.yoyPct != null && (
-                <span className={`ml-2 text-xs ${latest.yoyPct >= 0 ? "text-up" : "text-down"}`}>
+                <span className={`ml-2 text-xs ${changeColorClass(latest.yoyPct)}`}>
                   年增 {fmtSignedPct(latest.yoyPct)}
                 </span>
               )}
