@@ -50,7 +50,14 @@ pnpm assets:prepare    # 設計素材管線:public/nazodex_assets/ 原始 PNG(gi
 - 背景紋理放 `html` 不放 `body`（html 有背景時 body 背景不會傳播到畫布,短頁面下緣會露黑帶）;勿用 `background-attachment: fixed`（iOS 不可靠）。
 - **iOS safe area**：viewport 已設 `viewportFit: "cover"`,固定在底部的元素（如 BottomNav）必須墊 `env(safe-area-inset-bottom)`——否則 LIFF 的 WKWebView 底部露白條、tab 被 Home Indicator 壓到（2026-07-05 iPhone 實機發現）。
 - 價格顯示用 `lib/format.ts`（`fmtPrice`/`fmtSignedPct`）。
+- **Tailwind v3 對 CSS 變數色不支援 `/alpha` modifier**——`bg-brand/70` 不會產生任何規則(元素直接沒背景,靜默失敗);要半透明用 `bg-brand opacity-70`（2026-07-09 營收長條隱形踩雷,驗證方式:grep build 出來的 CSS）。
 - 免費資料源：MIS（盤中）、證交所/櫃買 OpenAPI（每日）、FinMind（歷史回填/宇宙/除權息,`FINMIND_TOKEN`）。
+
+## FinMind 雷（2026-07-09 實測）
+
+- token 是**純 JWT**,參數/`.env`/k8s secret 都**不可帶 `Bearer ` 前綴**（帶了回 400 "Token is illegal";client 層已防呆 strip,但別依賴它）。
+- Free 方案（600 calls/hr）**只能逐檔查詢**（帶 `data_id`）;不帶 data_id 的全市場按日查詢回 400 "Your level is register"——**是 Sponsor 限定**。所以每日行情/基本面走 TWSE/TPEX 免費源,FinMind 只做逐檔才划算的事（歷史回填/除權息）;`TaiwanStockInfo`（宇宙）是唯一不用 data_id 也可查的例外。
+- 升級 Sponsor 時:換 token、調 `lib/finmind/client.ts` 的 `FINMIND_CALLS_PER_HOUR`(600→6000)、每日行情可整併回 FinMind 全市場單次查詢——升級點清單見 spec 文末。
 
 ## 認證雷（已修,務必維持）
 
@@ -65,6 +72,8 @@ pnpm assets:prepare    # 設計素材管線:public/nazodex_assets/ 原始 PNG(gi
 
 - Prisma + **Cloud SQL MySQL 8**。`schema.prisma` 的 datasource provider 為 `mysql`，用 `env("DATABASE_URL")`。
 - Migration 檔在 `prisma/migrations/`，**已 commit**。部署時 K8s Deployment 的 initContainer 每次 rollout 自動跑 `prisma migrate deploy`（只往前、非破壞性）。新增欄位/表：`prisma migrate dev --name <desc>` 產生 migration 檔並提交。
+- **migrate dev 對拋棄式 docker MySQL 跑,不對真 DB**：`docker run -d --name nazodex-migrate-db -e MYSQL_ROOT_PASSWORD=dev -e MYSQL_DATABASE=nazodex_dev -p 3311:3306 mysql:8` → 以該 URL 跑 migrate dev → `docker rm -f`;產生的 migration 資料夾**改名為序號慣例**（`0005_…`/`0006_…`,趁尚未套用到任何真 DB 時改才安全）。
+- 本機 `.env` 的 `DATABASE_URL` 指向舊 `taidex` 庫（改名遺留,**2026-07-09 決定暫不改**——別「順手修正」它）;要操作 prod DB 走 k8s secret 憑證 + socat 隧道:`kubectl run db-tunnel -n nazodex --image=alpine/socat --restart=Never --command -- socat TCP-LISTEN:3306,fork,reuseaddr TCP:10.224.0.3:3306` + `kubectl port-forward pod/db-tunnel -n nazodex 3310:3306`,用完刪 pod。
 
 ## 部署（無 CI，本機滾動更新）
 
@@ -81,13 +90,14 @@ pnpm assets:prepare    # 設計素材管線:public/nazodex_assets/ 原始 PNG(gi
 - 條件選股:`docs/superpowers/specs/2026-07-03-nazodex-screener-design.md` + `docs/superpowers/plans/2026-07-03-nazodex-screener.md`
 - 設計語言:`docs/superpowers/specs/2026-07-05-nazodex-design-language.md`（含 AI 生圖提示詞）+ `docs/superpowers/plans/2026-07-05-nazodex-design-language.md`
 - 新聞/事件方向:`docs/superpowers/specs/2026-07-05-nazodex-news-events-direction.md`（方向討論記錄,含波動四層模型、M1–M4 milestone、YAGNI 界線;非實作規格）
+- FinMind 整合:`docs/superpowers/specs/2026-07-08-nazodex-finmind-integration-design.md`（含 free 方案實測邊界與 Sponsor 升級點）+ plans `2026-07-08-nazodex-finmind-m1.md`/`2026-07-09-nazodex-finmind-m2.md`/`2026-07-09-nazodex-finmind-m3.md`
 
 ## 路線圖
 
-「看盤 / 自選股」「持股損益追蹤」「大盤與產業總覽」「條件選股」已上線（全用 TWSE 免費源,未用到 FinMind）。後續（依價值）:
+「看盤 / 自選股」「持股損益追蹤」「大盤與產業總覽」「條件選股」已上線;FinMind 整合 M1–M3 已上線(2026-07-09,PR #4/#5/#6:全市場 5 年日線回填+上櫃每日行情、基本面+成長因子、除權息建議卡;spec `docs/superpowers/specs/2026-07-08-nazodex-finmind-integration-design.md`)。後續（依價值）:
 1. 持股損益延伸:股利/除權息已上線(2026-07-03,手動記帳;自動抓除權息預填仍為 YAGNI),除權息建議卡已上線(2026-07-09),剩報表圖表。
 2. 大盤延伸:上櫃漲跌家數/法人、產業下鑽(v1 刻意不做,見 spec 的 YAGNI 節);大盤 K 線已上線(2026-07-03)。
-3. 選股延伸:策略推薦(多因子評分)已上線(2026-07-03),第六因子「成長」(月營收 YoY)與個股頁基本面區塊已上線(2026-07-09,TWSE OpenAPI 源);上櫃股票、技術指標(等 DailyQuote 歷史累積,約 2026-10 起可做均線)、產業別篩選、儲存自訂策略(v1 刻意不做,見 spec 的 YAGNI 節)。
+3. 選股延伸:策略推薦(多因子評分)已上線(2026-07-03),第六因子「成長」(月營收 YoY)與個股頁基本面區塊已上線(2026-07-09,TWSE OpenAPI 源);技術指標的**資料基礎已備**(2026-07-09 FinMind 回填全市場 5 年日線,不用再等累積)、產業別篩選的資料基礎已備(`Stock.industry` 已回填)——兩者只剩 UI/engine 工程;上櫃股票進 screener/strategy、儲存自訂策略(v1 刻意不做,見 spec 的 YAGNI 節)。
 4. 新聞/事件(2026-07-05 定向,見上方方向文件):M1 官方事件層(MOPS 重大訊息+注意/處置股)→ M2 個股新聞牆(RSS)→ M3 LLM 知識標籤 → M4 新聞×籌碼對照。定位是「呈現給人做判斷」,**不進評分引擎**(無法回測)。
 
 v1 polish 全數完成(2026-07-03):拖曳排序、盤後標示、成交量統一、AddStock debounce、選股一鍵加自選、大盤指數列(首頁,`/api/market/indices`)+ 卡片迷你走勢線(近月收盤,`/api/watchlist/sparklines`;歷史以 `pnpm backfill:history` 回填自選∪持股近 2 月,新自選靠每日 ingest 累積)。
